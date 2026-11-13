@@ -53,13 +53,23 @@ End to end the call takes about 0.5–1 s, and the response reports its own `lat
 | `aef.py` | AlphaEarth tile index (India slice), windowed COG reads via rasterio `/vsicurl/`, on-disk `.npz` tile cache |
 | `features.py` | POI table and `PoiIndex`, `CompsIndex` with own-locality exclusion, base feature frame |
 | `train.py` | Locality trim, three evaluation splits, baselines, ablations, conformal calibration, `Engine` artifact |
-| `api.py` | FastAPI app: search, value, income, surface, meta, health |
+| `reality.py` | Two prices (circle rate, deed, market), title ladder, approvals, neighbourhood adjustments, integrity signals and score |
+| `portfolio.py` | Demo loan book, revaluation results, LTV drift, valuer scorecard, double-pledge detection, CSV parsing |
+| `narrative.py` | Report narrative: deterministic facts, with an optional Claude Opus 5.5 rewrite in which every number is verified |
+| `api.py` | FastAPI app: search, value (with reality), income, portfolio, monitor (request log and PSI), report narrative, v1 API |
 
 ## Frontend structure
 
 ```
 web/src/
-├── App.tsx              header, sheet tabs, hash deep links; sheets stay mounted once opened
+├── App.tsx              router, site navigation and footer; pages are code-split
+├── pages/
+│   ├── Home             landing: HeroCity 3D scene, search, problem, witnesses, platform tiles, dark side, proof
+│   ├── Diligence        market truth: two-prices lab, fraud scanner, factor tornado, title ladder
+│   ├── Portfolio        deck.gl loan-book map, stress slider, early warnings, valuer scorecard, CSV upload
+│   ├── ModelPage        drift monitor (PSI), routing mix, model card, benchmark evidence
+│   ├── Developers       v1 API reference and live request console
+│   └── Report           printable sanction-style valuation report
 ├── api.ts               typed client for every endpoint
 ├── arch.ts              architecture maths (pure functions, no React)
 ├── format.ts            ₹ lakh / crore formatting, labels
@@ -70,6 +80,8 @@ web/src/
 │   ├── MarketSheet      H3 price surface (res 4 India, res 8 city)
 │   └── EvidenceSheet    benchmark, calibration, ablations, data, pipeline
 └── components/
+    ├── HeroCity         three.js landing scene: procedural wireframe city, survey ring, projected value tag
+    ├── Reality          integrity dial, two-prices chart, reality panel, deal-and-legal-facts form
     ├── Elevation        three.js wireframe: storey draw-on, sun path, cast shadow, crane, north point
     ├── SitePlan         deck.gl columns of comparables over MapLibre; click to move the pin
     ├── UnitPlan         SVG plan, RERA area statement, orientation rose

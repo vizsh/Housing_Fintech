@@ -23,7 +23,7 @@ Built for **Hero Housing Finance · Problem Statement 1: AI-Powered Digital Prop
 
 ---
 
-![The valuation sheet: input title block, 3D wireframe elevation with sun study, 3D site plan of comparables, value drawn as a dimension with its calibrated range, and the lending decision](docs/img/valuation.png)
+![Naksha landing page: a wireframe city rising around an amber subject building, with a live address search](docs/img/landing.png)
 
 ## Why this exists
 
@@ -70,27 +70,60 @@ Median absolute error against held-out listings (lower is better). Every method 
 
 ## What's inside
 
-| | Sheet | What a credit officer gets |
+Naksha is a website with one engine behind eight pages.
+
+| Page | Path | What a credit officer gets |
 |---|---|---|
-| **VAL** | **Valuation** | <ul><li>Value as a measured dimension with 68/80/90% bands</li><li>Confidence and forecast standard deviation (FSD)</li><li>Lending decision</li><li>3D wireframe elevation with the subject floor in amber, a sun path and cast shadow</li><li>3D site plan of comparables extruded by ₹/sq ft</li><li>Factor waterfall, source reconciliation, comparables table, land and structure split, risk flags</li><li>Printable report</li></ul> |
-| | **Drawing set** | <ul><li>Generated unit plan</li><li>RERA area statement with a loading check</li><li>Orientation study: value and sunlight by facing</li><li>Construction-linked disbursement for under-construction homes, with the 3D building drawn to the current slab</li></ul> |
-| **CRE** | **Commercial income** | <ul><li>Office, retail or warehouse valued by direct capitalisation plus a ten-year discounted cash flow (DCF)</li><li>3D cash-flow columns and a cap-rate × rent sensitivity grid</li><li>Loan sizing for lease rental discounting (LRD)</li></ul> |
-| **MKT** | **Market surface** | A 3D H3 hexagon price surface of India. Fly into any of 18 major cities. |
-| **EVD** | **Model evidence** | <ul><li>Benchmark against four baselines on three splits</li><li>Calibration plot and ablations</li><li>Training data and pipeline</li></ul> |
+| **Landing** | `/` | <ul><li>A 3D city that builds itself around the subject property</li><li>Live search of any locality, town or village in India</li><li>The problem, the method and the benchmark in one scroll</li></ul> |
+| **Valuation** | `/value` | <ul><li>Value as a measured dimension with 68/80/90% bands, confidence and the routing decision</li><li>3D elevation with sun path and cast shadow, and a 3D site plan of comparables</li><li>**Reality check:** integrity dial, the "two prices" of the home (circle rate, deed, market), valuer adjustments and fraud signals</li><li>**Drawing set:** generated unit plan, RERA area statement, orientation study, construction-stage disbursement</li><li>Factor attribution, source reconciliation, comparables</li></ul> |
+| **Market truth** | `/diligence` | <ul><li>A two-prices calculator for 24 states: circle rate vs deed vs market, cash outside the deed, stamp duty lost</li><li>**Fraud scanner:** eight collateral schemes run live through the engine</li><li>A tornado chart of the factors listings never record, and the title ladder with LTV caps</li></ul> |
+| **Portfolio** | `/portfolio` | <ul><li>Revalue a whole loan book on a 3D map</li><li>Price-shock stress slider, LTV drift, early warnings</li><li>Valuer scorecard and double-pledge detection</li><li>Upload your own CSV</li></ul> |
+| **Commercial** | `/commercial` | <ul><li>Office, retail or warehouse by direct capitalisation plus a ten-year DCF</li><li>3D cash-flow columns, a sensitivity grid and LRD loan sizing</li></ul> |
+| **Market map** | `/market` | A 3D H3 hexagon price surface of India; fly into 18 major cities. |
+| **Model risk** | `/model` | <ul><li>Live drift monitor (PSI against the training data), routing mix, latency and the model card</li><li>The benchmark against four baselines on three splits, calibration plot and ablations</li></ul> |
+| **API** | `/developers` | `POST /api/v1/valuations` for the loan-origination system, with a live "Try it" console |
+| **Report** | `/report` | A printable sanction-style valuation report. Claude Opus 5.5 writes the narrative when credentials are present, with every number checked against the valuation; otherwise a deterministic narrative is used. |
 
 <table>
 <tr>
-<td width="50%"><img src="docs/img/drawings.png" alt="Drawing set: unit plan, RERA area statement, orientation rose" /><br/><sub><b>Drawing set.</b> Generated unit plan, RERA area statement, value and sunlight by facing.</sub></td>
-<td width="50%"><img src="docs/img/commercial.png" alt="Commercial income sheet: 3D ten-year cash flow and sensitivity grid" /><br/><sub><b>Commercial income.</b> Ten-year net operating income (NOI) drawn in 3D, cap-rate × rent sensitivity, LRD loan sizing.</sub></td>
+<td width="50%"><img src="docs/img/valuation.png" alt="Valuation sheet" /><br/><sub><b>Valuation.</b> Elevation with sun study, site plan, value with its range, and the decision.</sub></td>
+<td width="50%"><img src="docs/img/diligence.png" alt="Fraud scanner on the Market truth page" /><br/><sub><b>Market truth.</b> A staged flip routed to fraud control, with the integrity dial and the two prices.</sub></td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/img/market.png" alt="3D hexagon price surface of India" /><br/><sub><b>Market surface.</b> 103k listings as a 3D H3 price surface.</sub></td>
-<td width="50%"><img src="docs/img/evidence.png" alt="Model evidence: benchmark bars, calibration plot, ablations" /><br/><sub><b>Model evidence.</b> Every claim on this page, measured.</sub></td>
+<td width="50%"><img src="docs/img/portfolio.png" alt="Portfolio revaluation map" /><br/><sub><b>Portfolio.</b> 605 loans revalued; breaches, double pledges and biased valuers surfaced.</sub></td>
+<td width="50%"><img src="docs/img/monitor.png" alt="Model risk monitor" /><br/><sub><b>Model risk.</b> Live traffic against the training data, routing mix and the model card.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/img/drawings.png" alt="Drawing set" /><br/><sub><b>Drawing set.</b> Generated unit plan, RERA area statement, value and sunlight by facing.</sub></td>
+<td width="50%"><img src="docs/img/report.png" alt="Valuation report" /><br/><sub><b>Report.</b> Sanction-style report with a number-locked narrative.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/img/commercial.png" alt="Commercial income sheet" /><br/><sub><b>Commercial income.</b> Ten-year NOI in 3D, sensitivity and LRD sizing.</sub></td>
+<td width="50%"><img src="docs/img/market.png" alt="3D hexagon price surface of India" /><br/><sub><b>Market map.</b> 103k listings as a 3D H3 price surface.</sub></td>
 </tr>
 </table>
 
-![Construction-linked disbursement: stage slider, tranche figures and exposure chart](docs/img/construction.png)
-<sub><b>Construction-linked disbursement.</b> Drag through the payment-plan stages. Each stage shows the builder's demand, the borrower's margin paid first, the lender's tranche, and what the collateral would realise if the project stalled.</sub>
+## The market's dark side, built in
+
+A model trained on listings sees area, floor and location. A lender also needs what the listings never record:
+
+- **Two prices.** Stamp duty is paid on the circle rate, so deeds cluster near it and the rest often moves in cash. Naksha estimates the circle-rate value per state (24 states, indicative ratios), the likely deed value and the cash gap. It lends on the lower of the deed value and the valuation, as lenders must.
+- **Title and approvals.** Freehold, leasehold, society share, Lal Dora, gram panchayat, GPA sale (no title after the Supreme Court's 2011 *Suraj Lamp* ruling), unauthorised colony, disputed. Each title type carries a value discount and an LTV ceiling. OC status and RERA status apply the same way.
+- **The neighbourhood.** Railway lines, high-tension lines, landfills, cremation grounds, nalas, flooding and tanker water, plus metro access and views. Each is a stated, editable adjustment shown line by line.
+- **The deal itself.** Eight detectors:
+
+  | Detector | What it catches |
+  |---|---|
+  | Over-declared agreement | Inflated invoice used to over-fund the loan |
+  | Cash component | Deed at circle rate, the rest paid outside it |
+  | Valuer above or below range | Possible collusion |
+  | Rapid flip | Round-tripping to inflate the collateral |
+  | Related-party sale | Price may not be arm's length |
+  | Duplicate collateral | Same property already pledged in the book |
+  | Weak or unacceptable title | Lal Dora, GPA sale, unauthorised colony, dispute |
+  | Missing OC, stalled or unregistered project | Approval and delivery risk |
+
+  Together they give an integrity score from 0 to 100. A high-severity signal routes the file to fraud control.
 
 ## How it works
 
@@ -170,7 +203,13 @@ flowchart LR
    npm --prefix web run dev
    ```
 
-Open **http://localhost:5173**. Deep links: `#income`, `#market`, `#evidence`, `#drawings`, `#construction`.
+Open **http://localhost:5173** for the landing page.
+
+The pages are `/value`, `/diligence`, `/portfolio`, `/commercial`, `/market`, `/model`, `/developers` and `/report`. `/value?lat=…&lon=…&label=…` values a point directly, and `/value#drawings` or `/value#construction` jump to those sections.
+
+**Optional settings:**
+- **Claude narrative:** set `ANTHROPIC_API_KEY`, or sign in with `ant auth login`, and Claude Opus 5.5 writes the report narrative. `NAKSHA_LLM=off` disables it.
+- **API keys:** set `NAKSHA_API_KEYS=key1,key2` to require an `X-API-Key` header on `/api/v1`.
 
 The first valuation in a new area takes about 10–15 s while its satellite tile streams from Google Cloud Storage. After that, valuations take about 0.5–1 s. To rebuild everything from raw data, see [docs/DATA.md](docs/DATA.md).
 
@@ -178,7 +217,9 @@ The first valuation in a new area takes about 10–15 s while its satellite tile
 - **Thin data:** pick the *Nashik outskirts* preset. It shows wide ranges, a THIN_DATA flag and physical-visit routing.
 - **Unseen city:** pick *Gomti Nagar, Lucknow*, a city the evaluation held out.
 - **Under construction:** switch to *Under construction* and drag the stage slider in the Drawing set.
-- **Commercial:** on the CRE sheet, enter a lease rent 40% above market and watch the routing change.
+- **Commercial:** on the Commercial page, enter a lease rent 40% above market and watch the routing change.
+- **Fraud:** on Market truth, run *Flip and round-trip* or *Double pledge* and watch the detectors fire.
+- **Portfolio:** drag the price-shock slider to −25% and watch breaches spread across the map.
 
 ## Documentation
 
@@ -204,16 +245,19 @@ Housing_Fintech/
 │   ├── aef.py              satellite tile reader (public GCS COGs, cached)
 │   ├── features.py         comparables, OSM access, feature frame
 │   ├── train.py            train, calibrate, benchmark → artifacts/
-│   ├── api.py              FastAPI service (value, income, search, surface)
+│   ├── reality.py          circle rates, stamp duty, title, approvals, nuisances, fraud signals
+│   ├── portfolio.py        loan-book revaluation, LTV drift, valuer scorecard, double pledges
+│   ├── narrative.py        report narrative (deterministic, or Claude with numbers locked)
+│   ├── api.py              FastAPI: value, income, reality, portfolio, monitor, report, v1
 │   └── requirements.txt
-├── web/                    React 19 + Vite + TypeScript console
+├── web/                    React 19 + Vite + TypeScript website
 │   └── src/
+│       ├── pages/          Home, Diligence, Portfolio, ModelPage, Developers, Report
 │       ├── sheets/         Valuation, Commercial income, Market, Evidence
-│       ├── components/     Elevation (three.js), SitePlan (deck.gl), UnitPlan,
-│       │                   Construction, CashflowSkyline, ValueDimension, …
+│       ├── components/     HeroCity, Elevation, SitePlan, Reality, UnitPlan, Construction, …
 │       └── arch.ts         solar geometry, unit layout, RERA areas, payment stages
 ├── artifacts/              engine.pkl (trained model), report.json (benchmark)
-├── data/processed/         listings, POIs, gazetteer, satellite points, indexes
+├── data/processed/         listings, POIs, places, gazetteer, satellite points and index
 └── docs/                   documentation and screenshots
 ```
 
@@ -222,7 +266,10 @@ Housing_Fintech/
 - **Asking prices, not transactions.** The architecture accepts registry or lender outcomes as another source (another witness), and the decision thresholds would tighten with them.
 - **Commercial valuation is a method demo.** No public Indian commercial dataset was found. Office rents and cap rates come from published 2025–26 broker and REIT reports, the rest are stated assumptions, and its range is a sensitivity band rather than a calibrated interval.
 - **The unit plan is indicative.** It checks the declared area against the declared rooms; it is not the sanctioned drawing.
-- **No registry, circle-rate, title or lender data** is used anywhere. Every assumption is stated in the interface.
+- **No registry, title or lender data feeds are connected yet.**
+  - State circle-rate ratios, stamp duties and adjustment percentages are indicative configuration from public reporting and common lender practice, shown wherever they are used.
+  - State IGR ready-reckoner tables, CERSAI checks and the lender's own history plug in as further witnesses.
+- **The portfolio demo book is synthetic.** It has 605 loans on real locations, with two biased valuers and five double pledges planted so the detectors have something to find. Upload a CSV to run a real book.
 
 ## Credits
 

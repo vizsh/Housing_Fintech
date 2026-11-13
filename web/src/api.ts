@@ -8,6 +8,8 @@ export type ValueInput = {
   furnishing: string; bathrooms: number | null; parking: number | null; covered_parking: number | null;
   amenities: string[]; age_years: number | null; loan_amount: number | null; label?: string | null;
   facing: string; super_area?: number | null;
+  legal_status?: string; oc_status?: string; rera_status?: string; builder?: string; factors?: string[];
+  declared_value?: number | null; valuer_value?: number | null; prev_price?: number | null; prev_year?: number | null; related_party?: boolean;
 };
 
 export type Step = { group: string; log_effect: number; pct: number; drivers: [string, number][]; from: number; to: number };
@@ -34,7 +36,48 @@ export type Valuation = {
   assumptions: Record<string, number | string>;
   thresholds?: { waive_fsd: number; desk_fsd: number };
   latency_ms: number;
+  reality?: Reality; model_decision?: Valuation["decision"]; model_version?: string;
 };
+
+export type RFlag = { code: string; severity: "high" | "medium" | "low"; text: string; kind: string };
+export type Reality = {
+  state: string; state_rules: { stamp: number; reg: number; circle: number; rr: string };
+  adjusted_value: number; adjustment_pct: number;
+  steps: { key: string; label: string; why: string; pct: number; from: number; to: number; group: string }[];
+  two_prices: { market: number; circle: number; deed: number; circle_ratio: number; cash_gap: number; stamp_on_market: number;
+    stamp_on_deed: number; duty_leakage: number; declared: number | null };
+  flags: RFlag[]; integrity: { score: number; grade: "clean" | "review" | "refer" };
+  lending: { basis: number; basis_rule: string; ltv_cap: number; max_loan: number; eligible: boolean };
+  route_override: Valuation["decision"] | null;
+};
+export type Catalogue = {
+  factors: Record<string, { pct: number; label: string; why: string }>;
+  legal: Record<string, { pct: number; ltv_cap: number | null; eligible: boolean; label: string; why: string }>;
+  oc: Record<string, { pct: number; label: string }>; rera: Record<string, { pct: number; label: string }>;
+  builder: Record<string, { pct: number; label: string }>;
+  states: Record<string, { stamp: number; reg: number; circle: number; rr: string }>;
+};
+export type Loan = {
+  loan_id: string; city: string; locality: string; lat: number; lon: number; area_sqft: number; bhk: number; orig_year: number;
+  valuer: string; legal_status: string; orig_valuation: number; sanctioned: number; outstanding: number; value: number; lo68: number;
+  hi68: number; fsd: number; band: string; ltv_orig: number; ltv_now: number; ltv_lendable: number; cap: number; drift_pts: number;
+  orig_vs_model: number; duplicate_of: string; risk: number; alerts: { code: string; severity: string; text: string }[];
+};
+export type Book = {
+  summary: { loans: number; exposure: number; collateral: number; wtd_ltv: number; breaches: number; double_pledges: number;
+    flagged_valuers: number; alerts_high: number; alerts_medium: number; growth_assumed: number; synthetic: boolean };
+  loans: Loan[]; valuers: { valuer: string; n: number; median_bias: number; share_high: number; exposure: number; flag: boolean }[];
+  cities: { city: string; n: number; exposure: number; value: number; ltv: number; lat: number; lon: number }[];
+};
+export type Monitor = {
+  n: number; by_day: { day: string; n: number }[]; bands: Record<string, number>; latency: { p50?: number; p90?: number };
+  fsd_median: number | null; sat_share: number | null;
+  features: { key: string; name: string; psi: number; status: "stable" | "watch" | "drift"; ref: number[]; cur: number[] }[];
+  recent: { t: number; city: string; band: string; fsd: number; latency_ms: number; src: string }[];
+  model_card: { version: string; trained_rows: number; cities: number; objective: string;
+    validation: Record<string, { MdAPE: number; cover_p90: number }>; thresholds: { waive_fsd: number; desk_fsd: number }; assumptions: Record<string, number | string> };
+};
+export type Narrative = { sections: { h: string; p: string }[]; source: string };
 
 export type Metrics = { n: number; MdAPE: number; MAPE: number; PPE10: number; PPE20: number; [k: string]: number };
 export type Meta = {
@@ -86,3 +129,14 @@ export const valueIncome = (body: IncomeInput) =>
 
 export const getSurface =(res: number, city?: string) =>
   fetch(`${API}/api/surface?res=${res}${city ? `&city=${encodeURIComponent(city)}` : ""}`).then(j<Hex[]>);
+
+const post = <T,>(path: string, body: unknown, headers: Record<string, string> = {}) =>
+  fetch(`${API}${path}`, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) }).then(j<T>);
+export const getCatalogue = () => fetch(`${API}/api/reality/catalogue`).then(j<Catalogue>);
+export const getBook = () => fetch(`${API}/api/portfolio`).then(j<Book>);
+export const uploadBook = (csv: string) => post<Book>("/api/portfolio/upload", { csv });
+export const getMonitor = () => fetch(`${API}/api/monitor`).then(j<Monitor>);
+export const replay = (n = 200) => post<{ logged: number }>(`/api/monitor/replay?n=${n}`, {});
+export const getNarrative = (valuation: Valuation, llm = true) => post<Narrative>("/api/report/narrative", { valuation, llm });
+export const v1Create = (body: unknown, key?: string) => post<Record<string, unknown>>("/api/v1/valuations", body, key ? { "X-API-Key": key } : {});
+export const v1Get = (id: string) => fetch(`${API}/api/v1/valuations/${id}?full=true`).then(j<Valuation>);

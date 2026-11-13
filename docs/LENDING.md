@@ -106,3 +106,102 @@ Everything else goes to a physical valuation.
 | **Unit plan** | Whether the declared carpet area can hold the declared BHK and bathrooms at livable room sizes |
 | **RERA area statement** | Carpet (s.2(k)) → walls → balcony → built-up → loading → super built-up. Entering the agreement's super area computes the real loading; **above 40% is flagged** as a possibly inflated super area. |
 | **Orientation study** | Model value for each of the eight facings, plus hours of direct sun on each facade at the solstices and the equinox, computed for the property's latitude and longitude |
+
+## Market reality: what the listings never show
+
+These are applied after the model, with every step shown. Percentages are indicative configuration in `engine/reality.py`.
+
+### 1. Two prices
+
+For each state the engine applies its stamp duty, registration fee and typical circle-to-market ratio. Premium localities get a lower ratio, because circle rates lag the market most where prices rise fastest.
+
+From these it computes:
+- the circle-rate value;
+- the likely deed value: the agreement value if given, otherwise the circle-rate value;
+- the cash gap and the stamp duty lost.
+
+The loan is sized on the **lower of the adjusted 68% bound and the agreement value**.
+
+### 2. Title ladder
+
+| Title | Value adjustment | LTV cap | Acceptable |
+|---|---:|---:|:---:|
+| Freehold, co-operative society share | 0% | RBI cap | ✔ |
+| Leasehold | −5% | RBI cap | ✔ |
+| Gram panchayat approval only | −15% | 60% | ✔ |
+| Lal Dora / abadi | −20% | 60% | ✔ |
+| GPA / power-of-attorney sale | −15% | nil | ✘ (Suraj Lamp, SC 2011) |
+| Unauthorised colony | −25% | nil | ✘ until regularised |
+| Disputed title | −35% | nil | ✘ |
+
+### 3. Approvals and project
+
+- **OC status (resale):** no OC −12%; CC without OC −6%.
+- **RERA status (new):** stalled −30%; not registered −10%; delayed −8%.
+- **Developer:** listed +3%; unknown −3%.
+
+### 4. Neighbourhood
+
+**Negative**
+
+| Factor | Adjustment |
+|---|---:|
+| Railway line | −5% |
+| Highway | −3% |
+| High-tension line | −8% |
+| Landfill | −12% |
+| Cremation ground | −6% |
+| Informal settlement | −7% |
+| Nala | −5% |
+| Flooding | −8% |
+| Tanker water | −6% |
+| No road access | −10% |
+
+**Positive**
+
+| Factor | Adjustment |
+|---|---:|
+| Metro within a 10-minute walk | +6% |
+| View | +8% |
+| Gated township | +4% |
+| School zone | +3% |
+| Corner unit | +2% |
+
+### 5. Integrity signals
+
+| Signal | Trigger | Severity |
+|---|---|---|
+| `OVER_DECLARED` | Agreement above the adjusted 90% range | high |
+| `CASH_COMPONENT` | Agreement within 8% of the circle rate while the market is 25%+ above it | medium |
+| `VALUER_ABOVE_RANGE` / `VALUER_BELOW_RANGE` | Valuer figure outside the 80% range | high / low |
+| `RAPID_FLIP` | Resold within 3 years at 15+ points a year above market growth | high |
+| `RELATED_PARTY` | Buyer and seller related | medium |
+| `DUPLICATE_COLLATERAL` | Same point (< 50 m) and area (±5%) already pledged in the book | high |
+| `TITLE_NOT_ACCEPTABLE` / `TITLE_WEAK` | Title ladder above | high / medium |
+| `NO_OC`, `RERA_*` | Approvals and project above | medium–high |
+
+The integrity score starts at 100 and loses 25 per high-severity flag, 12 per medium and 5 per low.
+
+| Grade | Score |
+|---|---|
+| Clean | ≥ 85 |
+| Review | ≥ 60 |
+| Refer | below 60 |
+
+A high-severity fraud signal, or an unacceptable title, overrides the routing: **Refer to fraud control** or **Not acceptable security**.
+
+## Portfolio monitoring
+
+**Revaluation.** Each loan's collateral is revalued in one vectorised pass.
+
+**LTV**
+- LTV now is outstanding ÷ current value, compared with the LTV at sanction.
+- A breach is LTV above the RBI cap for the loan size.
+- An early warning fires on drift above 8 points.
+- The stress slider applies a uniform price shock in the browser.
+
+**Valuer scorecard**
+- Each origination valuation is compared with the model's back-cast of market value at that date: today's value deflated at 6% a year.
+- A valuer is flagged when their median bias exceeds +8% across 10 or more files.
+
+**Double pledges.** Two loans on the same point (< 50 m) with the same area (±5%) are flagged.

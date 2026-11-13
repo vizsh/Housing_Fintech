@@ -1,20 +1,28 @@
 """FastAPI service for the valuation engine.  Run:  uvicorn api:app --port 8000  (from engine/)."""
 from __future__ import annotations
 
+import json
+import os
 import pickle
 import sys
+import threading
 import time
+import uuid
+from datetime import datetime, timezone
 from functools import lru_cache
 
 import h3
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 import aef
 import features as F
+import narrative as N
+import portfolio as PF
+import reality as RL
 import train as T  # noqa: F401  (Engine class must be importable for unpickling)
 from common import ART, PROC, RAW, haversine_km, norm_loc
 
@@ -97,6 +105,17 @@ class ValueIn(BaseModel):
     loan_amount: float | None = None
     facing: str = "Unknown"  # North | North - East | East | South - East | South | South -West | West | North - West
     label: str | None = None
+    # market reality: facts the model cannot see (all optional)
+    legal_status: str = "freehold"
+    oc_status: str = "oc"
+    rera_status: str = "registered"
+    builder: str = "regional"
+    factors: list[str] = []
+    declared_value: float | None = None
+    valuer_value: float | None = None
+    prev_price: float | None = None
+    prev_year: float | None = None
+    related_party: bool = False
 
 
 FACINGS = ["North", "North - East", "East", "South - East", "South", "South -West", "West", "North - West"]
@@ -175,6 +194,69 @@ def ltv_cap(loan):
     if loan <= 75e5:
         return 0.80
     return 0.75
+
+
+CITY_TREE = F.BallTree(np.radians(CITIES[["lat", "lon"]].values), metric="haversine")
+AEF = pd.read_parquet(PROC / "aef_points.parquet")
+AEF_IDX = {(round(a, 4), round(b, 4)): i for i, (a, b) in enumerate(zip(AEF.lat, AEF.lon))}
+AEF_M = AEF[[c for c in AEF.columns if c.startswith("ae")]].values
+DISC = 1 - A["ask_to_txn_discount"]
+
+
+def value_batch(rows: pd.DataFrame, exclude_self=False) -> pd.DataFrame:
+    """Vectorised valuation of many properties (portfolio revaluation, monitoring replays)."""
+    n = len(rows)
+    lat, lon = rows.lat.values.astype(float), rows.lon.values.astype(float)
+    d, i = CITY_TREE.query(np.radians(np.c_[lat, lon]), k=1)
+    cr = CITIES.iloc[i[:, 0]].reset_index(drop=True)
+    city_km = d[:, 0] * F.R_EARTH
+    df = pd.DataFrame({
+        "lat": lat, "lon": lon, "city": cr.city.values, "centre_lat": cr.lat.values, "centre_lon": cr.lon.values,
+        "area_sqft": rows.area_sqft.values.astype(float), "bhk": rows.bhk.values.astype(float), "ptype": "flat",
+        "floor": rows.floor.values.astype(float), "total_floors": rows.total_floors.values.astype(float),
+        "bathrooms": rows.bhk.values.astype(float), "parking": 1.0, "covered_parking": 1.0, "furnishing": "Semi-Furnished",
+        "transaction": "resale", "ownership": "Freehold", "facing": "Unknown", "source": "mb2023", "posted_by": "nan",
+        "geo": "loc_exact", "overlook_park": 0.0, "overlook_main_road": 0.0, "rera": 1.0, "under_construction": 0.0,
+        "gymnasium": 0.0, "swimmingpool": 0.0, "liftavailable": 1.0, "clubhouse": 0.0, "secsecurity": 1.0, "amenity_score": np.nan,
+    })
+    comps = COMPS.features(lat, lon, exclude_self=exclude_self)
+    poi = POIS.features(lat, lon)
+    Z = np.full((n, F.N_AE), np.nan)
+    hit = [AEF_IDX.get((round(a, 4), round(b, 4))) for a, b in zip(lat, lon)]
+    have = [k for k, h in enumerate(hit) if h is not None]
+    if have:
+        Z[have] = ENG.pca.transform(AEF_M[[hit[k] for k in have]])
+    X = F.base_frame(df)
+    X = pd.concat([X, comps.reset_index(drop=True), poi.reset_index(drop=True),
+                   pd.DataFrame(Z, columns=[f"sat{i:02d}" for i in range(F.N_AE)])], axis=1).reindex(columns=ENG.X_cols)
+    for c, cats in ENG.cats.items():
+        X[c] = pd.Categorical(X[c].astype(str), categories=cats)
+    mu = ENG.model.predict(X)
+    sig = np.exp(ENG.scale.predict(X))
+    b = T.density_bin(X["knn_d1"].values)
+    q = {k: np.array([ENG.qs[k].get(int(bb), ENG.qs[k]["global"]) for bb in b]) for k in T.LEVELS}
+    area = df.area_sqft.values
+    val = np.exp(mu) * area * DISC
+    out = pd.DataFrame({"value": val, "city_km": city_km, "density_bin": b, "knn_n1km": comps.knn_n1km.values,
+                        "knn_d1": comps.knn_d1.values, "knn_wmean": comps.knn_wmean.values, "has_sat": [h is not None for h in hit]})
+    for k in T.LEVELS:
+        out[f"lo{k[1:]}"] = np.exp(mu - q[k] * sig) * area * DISC
+        out[f"hi{k[1:]}"] = np.exp(mu + q[k] * sig) * area * DISC
+    out["fsd"] = (out.hi68 - out.lo68) / 2 / out.value
+    ok = (out.density_bin < 3) & (out.city_km <= 40)
+    out["band"] = np.where((out.fsd <= T_WAIVE) & (out.knn_n1km >= 8) & ok, "green",
+                           np.where((out.fsd <= T_DESK) & ok, "amber", "red"))
+    return out
+
+
+# ---------------------------------------------------------------- request log (model monitoring)
+LOG = ART / "requests.jsonl"
+_log_lock = threading.Lock()
+
+
+def log_request(rec: dict):
+    with _log_lock, open(LOG, "a", encoding="utf-8") as f:
+        f.write(json.dumps(clean(rec)) + "\n")
 
 
 @app.get("/api/meta")
@@ -319,7 +401,7 @@ def value(q: ValueIn):
                "two_valuations_required": loan >= 50e5,
                "note": "RBI directions require two valuation reports for loans of Rs 50 lakh and above; the engine can serve as one."}
 
-    return clean({
+    out = {
         "input": q.model_dump(), "city": city_row.city.title(), "city_km": round(city_km, 1),
         "value": value, "ppsf": value / area, "area_carpet_sqft": area,
         "range": {"p68": [lo68, hi68], "p80": [lo80, hi80], "p90": [lo90, hi90]},
@@ -331,8 +413,23 @@ def value(q: ValueIn):
         "cost_approach": {"structure": structure, "land": land, "spec_rate": spec, "age_years": age, "builtup_sqft": builtup},
         "satellite": {"available": sat is not None, "vector": list(sat[:16]) if sat else None},
         "flags": flags, "decision": decision, "lending": lending, "assumptions": A, "thresholds": {"waive_fsd": T_WAIVE, "desk_fsd": T_DESK},
-        "latency_ms": int((time.time() - t0) * 1000),
-    })
+    }
+    # market reality: title, approvals, nuisances, two prices, fraud signals
+    city_ppsf = float(np.exp(city_row.med_y)) * DISC if pd.notna(city_row.med_y) else value / area
+    loc_ix = float(np.clip((value / area) / city_ppsf, 0.4, 2.5))
+    state = RL.state_for(city_row.city, q.lat, q.lon, CITIES)
+    dupes = book_duplicates(q.lat, q.lon, area) if q.declared_value or q.valuer_value else []
+    out["reality"] = RL.assess(q.model_dump(), out, loc_ix, state, dupes)
+    out["model_decision"] = decision
+    if out["reality"]["route_override"]:
+        out["decision"] = out["reality"]["route_override"]
+    out["latency_ms"] = int((time.time() - t0) * 1000)
+    out["model_version"] = MODEL_VERSION
+    log_request({"t": time.time(), "src": "api", "lat": q.lat, "lon": q.lon, "city": out["city"], "city_km": city_km,
+                 "area_sqft": area, "knn_d1": float(comps.knn_d1.iloc[0]), "knn_wmean": float(comps.knn_wmean.iloc[0]),
+                 "knn_n1km": int(comps.knn_n1km.iloc[0]), "fsd": fsd, "band": out["decision"]["band"],
+                 "has_sat": sat is not None, "latency_ms": out["latency_ms"]})
+    return clean(out)
 
 
 # ---------------------------------------------------------------- commercial: income approach
@@ -509,6 +606,197 @@ def _surface(res, city):
     g = d.groupby("h").agg(ppsf=("ppsf", "median"), n=("ppsf", "size"), city=("city", "first")).reset_index()
     g = g[g.n >= (2 if city else 3)]
     return [{"h": r.h, "ppsf": round(float(r.ppsf)), "n": int(r.n), "city": r.city.title()} for r in g.itertuples()]
+
+
+MODEL_VERSION = f"naksha-lgbm-{int((ART / 'engine.pkl').stat().st_mtime)}"
+
+
+# ---------------------------------------------------------------- catalogue (factor pickers, state rules)
+@app.get("/api/reality/catalogue")
+def reality_catalogue():
+    return RL.catalogue()
+
+
+# ---------------------------------------------------------------- portfolio
+_book = {"data": None, "frame": None}
+
+
+def _run_book(book: pd.DataFrame, synthetic: bool):
+    val = value_batch(book, exclude_self=False)
+    res = PF.finish(book, val, A["annual_appreciation"], synthetic)
+    return res
+
+
+def book_duplicates(lat, lon, area):
+    fr = _book["frame"]
+    if fr is None:
+        return []
+    d = haversine_km(lat, lon, fr.lat.values, fr.lon.values)
+    m = (d < 0.05) & (np.abs(fr.area_sqft.values / area - 1) < 0.05)
+    return [{"loan_id": r.loan_id, "km": float(dd), "area_sqft": int(r.area_sqft)} for r, dd in zip(fr[m].itertuples(), d[m])][:3]
+
+
+@app.get("/api/portfolio")
+def portfolio():
+    if _book["data"] is None:
+        L = pd.read_parquet(PROC / "listings.parquet")
+        book = PF.sample_book(L)
+        _book["data"] = clean(_run_book(book, synthetic=True))
+        _book["frame"] = pd.DataFrame(_book["data"]["loans"])[["loan_id", "lat", "lon", "area_sqft"]]
+    return _book["data"]
+
+
+class BookIn(BaseModel):
+    csv: str
+
+
+@app.post("/api/portfolio/upload")
+def portfolio_upload(b: BookIn):
+    try:
+        book = PF.parse_csv(b.csv)
+    except Exception as e:
+        raise HTTPException(400, f"Could not read the CSV: {e}")
+    return clean(_run_book(book, synthetic=False))
+
+
+# ---------------------------------------------------------------- monitoring
+_ref = {}
+
+
+def _reference():
+    if not _ref:
+        smp = REF.sample(3000, random_state=5)
+        c = COMPS.features(smp.lat.values, smp.lon.values, exclude_self=True)
+        d, _ = CITY_TREE.query(np.radians(smp[["lat", "lon"]].values), k=1)
+        _ref.update({"knn_d1": np.log1p(c.knn_d1.values), "knn_wmean": c.knn_wmean.values, "area_sqft": np.log(smp.area_sqft.values),
+                     "city_km": np.log1p(d[:, 0] * F.R_EARTH), "knn_n1km": c.knn_n1km.values.astype(float)})
+    return _ref
+
+
+def psi(ref, cur, bins=10):
+    if len(cur) == 0:
+        return 0.0, [], []
+    edges = np.unique(np.quantile(ref, np.linspace(0, 1, bins + 1)))
+    if len(edges) < 4:
+        lo, hi = min(ref.min(), cur.min()), max(ref.max(), cur.max())
+        edges = np.linspace(lo, hi + 1e-9, bins + 1)
+    e = np.histogram(np.clip(ref, edges[0], edges[-1]), edges)[0] / len(ref)
+    a = np.histogram(np.clip(cur, edges[0], edges[-1]), edges)[0] / len(cur)
+    e, a = np.clip(e, 1e-4, None), np.clip(a, 1e-4, None)
+    return float(((a - e) * np.log(a / e)).sum()), e.tolist(), a.tolist()
+
+
+@app.get("/api/monitor")
+def monitor():
+    recs = []
+    if LOG.exists():
+        with open(LOG, encoding="utf-8") as f:
+            recs = [json.loads(line) for line in f if line.strip()][-5000:]
+    ref = _reference()
+    df = pd.DataFrame(recs)
+    feats = []
+    tf = {"knn_d1": np.log1p, "knn_wmean": lambda x: x, "area_sqft": np.log, "city_km": np.log1p, "knn_n1km": lambda x: x}
+    names = {"knn_d1": "Distance to nearest comparable", "knn_wmean": "Local price level", "area_sqft": "Carpet area",
+             "city_km": "Distance from covered city", "knn_n1km": "Comparables within 1 km"}
+    for k in tf:
+        cur = tf[k](df[k].astype(float).values) if len(df) and k in df else np.array([])
+        v, e, a = psi(ref[k], cur)
+        feats.append({"key": k, "name": names[k], "psi": v, "status": "stable" if v < 0.1 else "watch" if v < 0.25 else "drift",
+                      "ref": e, "cur": a})
+    by_day, bands, lat_ms = [], {}, {}
+    if len(df):
+        df["day"] = pd.to_datetime(df.t, unit="s").dt.strftime("%Y-%m-%d")
+        by_day = df.groupby("day").size().reset_index(name="n").to_dict("records")
+        bands = df.band.value_counts(normalize=True).to_dict()
+        live = df[df.src == "api"] if "src" in df else df
+        lat_ms = {"p50": float(live.latency_ms.median()), "p90": float(live.latency_ms.quantile(0.9))} if len(live) else {}
+    r = ENG.report
+    return clean({
+        "n": len(df), "by_day": by_day, "bands": bands, "latency": lat_ms,
+        "fsd_median": float(df.fsd.median()) if len(df) else None, "sat_share": float(df.has_sat.mean()) if len(df) else None,
+        "features": feats,
+        "recent": df.tail(12)[["t", "city", "band", "fsd", "latency_ms", "src"]].to_dict("records") if len(df) else [],
+        "model_card": {"version": MODEL_VERSION, "trained_rows": r["data"]["rows"], "cities": r["data"]["cities"],
+                       "objective": "LightGBM Huber on log Rs/sq ft, monotone in comparables; LightGBM error model; Mondrian split-conformal 68/80/90%",
+                       "validation": {k: {"MdAPE": r[k]["engine"]["MdAPE"], "cover_p90": r[k]["engine"].get("cover_p90")} for k in ("random", "unseen_locality", "unseen_city")},
+                       "thresholds": {"waive_fsd": T_WAIVE, "desk_fsd": T_DESK}, "assumptions": A},
+    })
+
+
+@app.post("/api/monitor/replay")
+def monitor_replay(n: int = 200):
+    """Send a batch of realistic requests (named places across India) through the engine and log them."""
+    rs = np.random.default_rng(int(time.time()) % 10000)
+    pool = PLACES[PLACES.place.isin(["suburb", "neighbourhood", "quarter", "town", "village"])]
+    near, far = pool[pool.city_km < 25], pool[pool.city_km >= 25]
+    k = min(n, 1000)
+    P = pd.concat([near.sample(int(k * 0.75), random_state=int(rs.integers(1e6))), far.sample(k - int(k * 0.75), random_state=int(rs.integers(1e6)))])
+    bhk = rs.choice([1, 2, 3, 4], len(P), p=[0.2, 0.45, 0.28, 0.07]).astype(float)
+    rows = pd.DataFrame({"lat": P.lat.values, "lon": P.lon.values, "area_sqft": np.round(bhk * rs.lognormal(np.log(430), 0.22, len(P))),
+                         "bhk": bhk, "floor": rs.integers(0, 15, len(P)).astype(float), "total_floors": 15.0})
+    t0 = time.time()
+    v = value_batch(rows)
+    per = (time.time() - t0) * 1000 / max(len(rows), 1)
+    now = time.time()
+    for k, (r, x) in enumerate(zip(rows.itertuples(), v.itertuples())):
+        log_request({"t": now - (len(rows) - k) * 37, "src": "replay", "lat": r.lat, "lon": r.lon, "city": P.city.values[k].title(),
+                     "city_km": x.city_km, "area_sqft": r.area_sqft, "knn_d1": x.knn_d1, "knn_wmean": x.knn_wmean,
+                     "knn_n1km": int(x.knn_n1km), "fsd": x.fsd, "band": x.band, "has_sat": bool(x.has_sat), "latency_ms": per})
+    return {"logged": len(rows)}
+
+
+# ---------------------------------------------------------------- report narrative
+class NarrIn(BaseModel):
+    valuation: dict
+    llm: bool = True
+
+
+@app.post("/api/report/narrative")
+def report_narrative(b: NarrIn):
+    return N.report(b.valuation, use_llm=b.llm)
+
+
+# ---------------------------------------------------------------- v1: loan-origination-system integration
+_store: dict[str, dict] = {}
+KEYS = {k.strip() for k in os.environ.get("NAKSHA_API_KEYS", "").split(",") if k.strip()}
+
+
+class V1In(ValueIn):
+    application_id: str | None = None
+
+
+def _auth(key):
+    if KEYS and key not in KEYS:
+        raise HTTPException(401, "Missing or invalid X-API-Key.")
+
+
+@app.post("/api/v1/valuations", status_code=201)
+def v1_create(q: V1In, x_api_key: str | None = Header(default=None)):
+    _auth(x_api_key)
+    v = value(ValueIn(**q.model_dump(exclude={"application_id"})))
+    vid = "val_" + uuid.uuid4().hex[:16]
+    r = v["reality"]
+    doc = {
+        "id": vid, "object": "valuation", "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "application_id": q.application_id, "model_version": v["model_version"],
+        "property": {"lat": q.lat, "lon": q.lon, "city": v["city"], "carpet_sqft": v["area_carpet_sqft"], "bhk": q.bhk, "type": q.ptype},
+        "value": {"market": v["value"], "adjusted": r["adjusted_value"], "per_sqft": v["ppsf"], "range_68": v["range"]["p68"],
+                  "range_90": v["range"]["p90"], "fsd": v["fsd"], "confidence": v["confidence"]},
+        "decision": v["decision"], "lending": {**v["lending"], "reality": r["lending"]},
+        "integrity": r["integrity"], "flags": v["flags"] + r["flags"],
+        "two_prices": r["two_prices"], "latency_ms": v["latency_ms"],
+        "links": {"self": f"/api/v1/valuations/{vid}", "report": f"/report?id={vid}"},
+    }
+    _store[vid] = {"doc": clean(doc), "full": v}
+    return _store[vid]["doc"]
+
+
+@app.get("/api/v1/valuations/{vid}")
+def v1_get(vid: str, full: bool = False, x_api_key: str | None = Header(default=None)):
+    _auth(x_api_key)
+    if vid not in _store:
+        raise HTTPException(404, "No valuation with that id.")
+    return _store[vid]["full"] if full else _store[vid]["doc"]
 
 
 @app.get("/api/health")

@@ -1,6 +1,6 @@
 # Guided tour
 
-A route through the console for judges and credit officers. Each section takes about a minute. Start the engine and the web app (see the [README](../README.md#quick-start)), then open http://localhost:5173.
+A route through the website for judges and credit officers. Each section takes about a minute. Start the engine and the web app (see the [README](../README.md#quick-start)), then open http://localhost:5173.
 
 ---
 
@@ -23,6 +23,35 @@ The app opens on a 2 BHK in **Powai, Mumbai** and values it immediately.
 - Pick **Nashik outskirts**. The range widens, `THIN_DATA` appears, and the decision turns to physical visit. The engine refuses to bluff.
 - Pick **Gomti Nagar, Lucknow**. Lucknow was entirely held out in the unseen-city test.
 - Search a village name, or drop a pin in rural Rajasthan. It still answers, with flags.
+
+## 1b. Reality check
+
+Under the value, **Reality check** shows:
+- the integrity dial;
+- the home's two prices (circle rate, deed, market) with the cash gap and stamp duty;
+- the adjustments the model cannot see;
+- integrity and title signals.
+
+Open **Deal and legal facts** in the title block, set an agreement value, a valuer's figure, a previous sale, a title type or nuisances like a high-tension line, and value again.
+
+## 1c. Market truth (`/diligence`)
+
+- Move the state and price sliders in the two-prices lab.
+- In **Anatomy of collateral fraud**, run any of the eight staged cases (inflated agreement, valuer collusion, flip, cash component, GPA sale, Lal Dora, stalled project, double pledge) and watch the detectors and the routing.
+
+## 1d. Portfolio (`/portfolio`)
+
+- 605 loans revalued on a 3D map.
+- Drag the price-shock slider to −25% and watch breaches spread.
+- Read the early warnings.
+- Find the two planted biased valuers in the scorecard.
+- Download the CSV template and upload your own book.
+
+## 1e. Model risk, API and report
+
+- **Model risk (`/model`):** replay 200 requests from across India and watch feature drift (PSI), the routing mix and the model card update.
+- **API (`/developers`):** send a live `POST /api/v1/valuations` and open its report.
+- **Report (`/report`):** a printable sanction-style report with a narrative.
 
 ## 2. The drawing set
 

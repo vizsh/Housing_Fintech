@@ -1,5 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { Printer } from "lucide-react";
+import { FileText, Printer } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { RealityPanel } from "../components/Reality";
 import { valueProperty, type Valuation, type ValueInput } from "../api";
 import TitleBlock, { PRESETS } from "../components/TitleBlock";
 import ValueDimension from "../components/ValueDimension";
@@ -14,15 +16,20 @@ import { inr, pct } from "../format";
 
 const Elevation = lazy(() => import("../components/Elevation"));
 
+const QS = new URLSearchParams(window.location.search);
+const QLAT = Number(QS.get("lat")), QLON = Number(QS.get("lon"));
+const START = QLAT && QLON ? { lat: QLAT, lon: QLON, label: QS.get("label") || `Pin ${QLAT.toFixed(4)}, ${QLON.toFixed(4)}` }
+  : { lat: PRESETS[0].lat, lon: PRESETS[0].lon, label: PRESETS[0].t };
 const DEFAULT: ValueInput = {
-  lat: PRESETS[0].lat, lon: PRESETS[0].lon, area_sqft: 850, area_basis: "carpet", bhk: 2, ptype: "flat", floor: 9,
+  lat: START.lat, lon: START.lon, area_sqft: 850, area_basis: "carpet", bhk: 2, ptype: "flat", floor: 9,
   total_floors: 22, transaction: window.location.hash === "#construction" ? "new" : "resale", furnishing: "Semi-Furnished", bathrooms: 2, parking: 1, covered_parking: 1,
-  amenities: ["liftavailable", "secsecurity", "gymnasium"], age_years: null, loan_amount: null, label: PRESETS[0].t, facing: "East",
+  amenities: ["liftavailable", "secsecurity", "gymnasium"], age_years: null, loan_amount: null, label: START.label, facing: "East",
 };
 
 export default function ValuationSheet() {
   const [form, setForm] = useState<ValueInput>(DEFAULT);
-  const [place, setPlace] = useState(PRESETS[0].t);
+  const [place, setPlace] = useState(START.label);
+  const navigate = useNavigate();
   const [v, setV] = useState<Valuation | null>(null);
   const [busy, setBusy] = useState(false);
   const [slow, setSlow] = useState(false);
@@ -40,6 +47,7 @@ export default function ValuationSheet() {
     try {
       const r = await valueProperty(f);
       setV(r); setDrawKey((k) => k + 1);
+      sessionStorage.setItem("naksha:last", JSON.stringify(r));
     } catch (e) {
       setError(e instanceof Error ? `${e.message}. Check that the engine is running on port 8000.` : "Valuation failed.");
     } finally { clearTimeout(t); setBusy(false); setSlow(false); }
@@ -104,6 +112,23 @@ export default function ValuationSheet() {
         </aside>
       </div>
 
+      {/* reality check */}
+      {v?.reality && (
+        <div id="reality" style={{ borderTop: "1px solid var(--line-3)", background: "rgba(7,31,56,0.45)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", padding: "18px 24px", borderBottom: "1px solid var(--line-2)" }}>
+            <div>
+              <h2 style={{ margin: 0, fontStretch: "75%", fontWeight: 700, fontSize: 26 }}>Reality check</h2>
+              <p style={{ margin: "4px 0 0", color: "var(--ink-2)", fontSize: 13 }}>
+                What the listings never show: the circle-rate deed, title and approvals, the neighbourhood, and whether the deal itself is honest.
+                Set the facts in <b>Deal and legal facts</b> in the title block.
+              </p>
+            </div>
+            <button onClick={() => navigate("/report")} className="btn-ghost"><FileText size={15} aria-hidden /> Open valuation report</button>
+          </div>
+          <RealityPanel r={v.reality} />
+        </div>
+      )}
+
       {/* drawing set */}
       {v && (
         <div id="drawings" style={{ borderTop: "1px solid var(--line-3)" }}>
@@ -146,9 +171,9 @@ export default function ValuationSheet() {
                 valued in {v.latency_ms} ms · confidence {pct(v.confidence, 0)}
               </p>
             </div>
-            <button onClick={() => window.print()} className="no-print"
+            <button onClick={() => navigate("/report")} className="no-print"
               style={{ display: "flex", gap: 8, alignItems: "center", border: "1px solid var(--line-3)", background: "transparent", padding: "9px 14px", cursor: "pointer", fontStretch: "80%", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 12 }}>
-              <Printer size={15} aria-hidden /> Print valuation report
+              <Printer size={15} aria-hidden /> Valuation report
             </button>
           </div>
           <div className="sheet-2col" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.35fr) minmax(0, 1fr)" }}>

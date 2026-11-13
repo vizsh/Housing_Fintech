@@ -120,3 +120,80 @@ Median ₹/sq ft per H3 cell, with listing count. A cell needs at least 3 listin
 ```json
 [ { "h": "8460145ffffffff", "ppsf": 18240, "n": 57, "city": "Mumbai" } ]
 ```
+
+---
+
+## Market reality on `POST /api/value`
+
+`/api/value` accepts optional deal and legal facts and returns a `reality` block.
+
+**Request fields**
+
+| Field | Values |
+|---|---|
+| `legal_status` | `freehold` · `leasehold` · `society_share` · `lal_dora` · `gram_panchayat` · `power_of_attorney` · `unauthorised_colony` · `disputed` |
+| `oc_status` (resale) | `oc` · `cc_only` · `none` |
+| `rera_status` (new) | `registered` · `delayed` · `stalled` · `not_registered` |
+| `builder` | `listed` · `regional` · `unknown` |
+| `factors` | any of `railway_line`, `highway`, `high_tension_line`, `landfill`, `cremation_ground`, `slum_adjacent`, `nala`, `flood_prone`, `water_tanker`, `no_road_access`, `metro_walk`, `sea_or_lake_view`, `gated_township`, `school_zone`, `corner_unit` |
+| `declared_value`, `valuer_value`, `prev_price` | ₹ |
+| `prev_year` | Year of the previous sale |
+| `related_party` | `true` · `false` |
+
+**The `reality` block**
+
+| Field | Contents |
+|---|---|
+| `state`, `state_rules` | The state, and its stamp duty, registration fee and typical circle-to-market ratio |
+| `adjusted_value`, `steps[]` | Valuer adjustments, step by step |
+| `two_prices` | Circle-rate value, likely deed value, market value, cash gap, stamp duty on each, duty leakage |
+| `flags[]` | Each flag has `code`, `severity` (`high` · `medium` · `low`), `text` and `kind` (`fraud` · `legal` · `project` · `market`) |
+| `integrity` | `score` (0–100) and `grade` (`clean` · `review` · `refer`) |
+| `lending` | Lending basis (the lower of the adjusted 68% bound and the agreement value), LTV cap after title, max loan, eligibility |
+| `route_override` | Replaces `decision` when a high-severity signal fires |
+
+`GET /api/reality/catalogue` returns every factor, title, OC, RERA and state rule, for building forms.
+
+## Portfolio
+
+- `GET /api/portfolio` revalues the demo book (cached after the first call, about 1 s).
+- `POST /api/portfolio/upload` takes `{ "csv": "<text>" }` and revalues your own book, up to 5,000 rows.
+  - Required columns: `lat`, `lon`, `area_sqft`, `outstanding`, `orig_valuation`.
+  - Optional columns: `loan_id`, `bhk`, `floor`, `total_floors`, `orig_year`, `sanctioned`, `valuer`, `legal_status`.
+
+Both return:
+
+| Field | Contents |
+|---|---|
+| `summary` | Loans, exposure, collateral, weighted LTV, breaches, double pledges, flagged valuers |
+| `loans[]` | Current value and range, LTV at sanction and now, drift, origination bias against the model's back-cast, `alerts[]` |
+| `valuers[]` | Median bias, share of files over +15%, flag |
+| `cities[]` | Exposure and LTV per city |
+
+## Monitoring
+
+`GET /api/monitor` returns:
+- the request count, requests per day and routing mix;
+- p50 and p90 latency of live API calls;
+- PSI per feature against a 3,000-listing training reference;
+- the latest requests;
+- the model card.
+
+`POST /api/monitor/replay?n=200` sends realistic traffic from named places across India through the engine and logs it.
+
+## Report narrative
+
+`POST /api/report/narrative` takes `{ "valuation": <full valuation>, "llm": true }` and returns `{ "sections": [{ "h", "p" }], "source" }`.
+
+`source` is `claude-opus-5-5` when Claude wrote the text and every number checked out, otherwise `template`.
+
+## v1 for loan-origination systems
+
+**`POST /api/v1/valuations`**
+- Body: the `/api/value` body plus an optional `application_id`.
+- Header: `X-API-Key` (enforced only if `NAKSHA_API_KEYS` is set).
+- Returns `201` with a compact, stable document: `id`, `created_at`, `model_version`, `property`, `value`, `decision`, `lending`, `integrity`, `flags`, `two_prices`, `links`.
+
+**`GET /api/v1/valuations/{id}`**
+- Returns the stored document.
+- `?full=true` returns the full evidence instead.

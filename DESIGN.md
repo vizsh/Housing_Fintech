@@ -59,6 +59,36 @@ Naksha's interface is a drawing sheet. Every valuation is drawn up like a munici
 - **Segmented controls and chips:** outlined; the active state fills with ink.
 - **Hatching** (`repeating-linear-gradient 135deg`) marks negatives, baselines and the structure share. It is never decorative fill.
 
+## Website
+
+The product is a website of eight pages on one sheet language.
+
+**Navigation**
+- A sticky navigation bar carries the sheet codes (VAL, DUE, PRT, CRE, MKT, EVD, API).
+- Content pages end in a ruled footer.
+- The workspace pages (Valuation, Portfolio, Commercial, Market) fill the viewport like the original console.
+
+**Landing page**
+- **Hero:** a three.js scene (`HeroCity`). A procedural wireframe city rises outward from an amber subject tower while a cyan survey ring sweeps the plots. An amber value tag tracks the tower's roof, and the camera follows the pointer.
+- **Below the hero, in order:**
+  1. A marquee of measured numbers.
+  2. Counters that run when scrolled into view.
+  3. The "five witnesses" diagram, its paths drawn on with amber particles travelling to the verdict.
+  4. A grid of platform tiles over screenshots.
+  5. A dark-side teaser.
+  6. The benchmark.
+  7. A closing call to action.
+
+**Reality components**
+- The integrity dial: a semicircular gauge whose needle sweeps in, with red, amber and green zones that match the routing.
+- The two-prices chart: circle rate and deed hatched in cyan, market solid amber, and the cash gap as a dashed red rule.
+
+Red is used for fraud, title and breach signals only.
+
+**Portfolio.** deck.gl columns per loan, height by outstanding amount:
+- Colour runs from cyan (within cap) to amber (near cap) to red (breach), and deep red marks a double pledge.
+- Colours transition as the stress slider moves.
+
 ## Motion
 
 - One authored moment per valuation: the elevation draws on, the value digits roll into place, the range bands extend, and the decision band wipes in.

@@ -12,3 +12,5 @@ h3==4.5.0
 rasterio==1.4.4
 pyproj==3.7.2
 httpx==0.28.1
+# optional: Claude-written report narrative (falls back to a deterministic narrative without it)
+anthropic==1.2.0

@@ -3,6 +3,7 @@ import type { ValueInput } from "../api";
 import LocationSearch, { type Preset } from "./LocationSearch";
 import { Field, inputStyle, Seg } from "./ui";
 import { FACINGS } from "../arch";
+import { DealFacts } from "./Reality";
 
 export const PRESETS: Preset[] = [
   { t: "Powai, Mumbai", lat: 19.1176, lon: 72.906, note: "Dense metro" },
@@ -102,6 +103,7 @@ export default function TitleBlock({ form, setForm, place, setPlace, onValue, bu
               onChange={(e) => set("loan_amount", e.target.value === "" ? null : Number(e.target.value) * 1e5)} style={inputStyle} />
           </Field>
         </div>
+        <DealFacts form={form} setForm={setForm} />
       </div>
 
       <div style={{ borderTop: "1px solid var(--line-2)" }}>

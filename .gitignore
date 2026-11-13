@@ -24,3 +24,6 @@ artifacts/*.log
 .env.*
 .DS_Store
 Thumbs.db
+
+# Runtime logs
+artifacts/requests.jsonl
