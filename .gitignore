@@ -1,0 +1,26 @@
+# Dependencies and builds
+node_modules/
+web/dist/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Raw data: large, re-downloadable (see docs/DATA.md)
+data/raw/
+
+# Model backups and training logs
+artifacts/engine_v*.pkl
+artifacts/report_v*.json
+artifacts/*.log
+
+# Local tooling and editor state
+.claude/
+.impeccable/
+.vscode/
+.idea/
+*.log
+.env
+.env.*
+.DS_Store
+Thumbs.db

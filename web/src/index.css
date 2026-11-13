@@ -1,0 +1,114 @@
+@import "@fontsource-variable/archivo/wdth.css";
+@import "maplibre-gl/dist/maplibre-gl.css";
+
+:root {
+  --ground-0: #071f38;
+  --ground: #0b2a4a;
+  --ground-2: #0f3459;
+  --ground-3: #134070;
+  --line: rgba(214, 233, 252, 0.16);
+  --line-2: rgba(214, 233, 252, 0.32);
+  --line-3: rgba(214, 233, 252, 0.6);
+  --ink: #e8f1fb;
+  --ink-2: #b5cde6;
+  --ink-3: #86a8cb;
+  --cyan: #7fb2e5;
+  --amber: #f2b233;
+  --amber-2: #ffd27a;
+  --green: #7fd6a8;
+  --red: #ff8a73;
+  --grid-minor: rgba(127, 178, 229, 0.07);
+  --grid-major: rgba(127, 178, 229, 0.14);
+  --font: "Archivo Variable", "Archivo", system-ui, sans-serif;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font-family: var(--font);
+  font-stretch: 100%;
+  color: var(--ink);
+  background-color: var(--ground);
+  background-image:
+    linear-gradient(var(--grid-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+    linear-gradient(var(--grid-minor) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px);
+  background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+::selection { background: var(--amber); color: var(--ground-0); }
+:focus-visible { outline: 1.5px solid var(--amber); outline-offset: 2px; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line-2); border: 3px solid var(--ground); border-radius: 0; }
+* { scrollbar-color: var(--line-2) transparent; scrollbar-width: thin; }
+input, select, button { font: inherit; color: inherit; }
+input { caret-color: var(--amber); }
+a { color: var(--cyan); text-underline-offset: 3px; }
+
+/* Technical lettering: condensed caps for labels */
+.label {
+  font-stretch: 72%;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+.cond { font-stretch: 75%; }
+.num { font-variant-numeric: tabular-nums lining-nums; }
+
+.maplibregl-ctrl-attrib { background: rgba(7, 31, 56, 0.7) !important; color: var(--ink-3) !important; font-size: 10px; }
+.maplibregl-ctrl-attrib a { color: var(--ink-2) !important; }
+.maplibregl-ctrl-group { background: var(--ground) !important; border: 1px solid var(--line-2); border-radius: 0 !important; }
+.maplibregl-ctrl-group button + button { border-top: 1px solid var(--line) !important; }
+.maplibregl-ctrl button .maplibregl-ctrl-icon { filter: invert(0.9) hue-rotate(180deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+@media print {
+  /* the report prints as the blueprint sheet it is */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .no-print { display: none !important; }
+  .sheet-main { grid-template-columns: 1fr 1fr !important; height: auto !important; }
+  .sheet-centre { display: none !important; }
+  @page { size: A4; margin: 10mm; }
+}
+.spin { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Narrow screens: the sheet stacks into one column, in reading order */
+@media (max-width: 1100px) {
+  .sheet-main { grid-template-columns: 1fr !important; height: auto !important; }
+  .sheet-main > aside { border: 0 !important; border-bottom: 1px solid var(--line-2) !important; }
+  .sheet-centre { grid-template-rows: 380px 360px !important; }
+  .sheet-2col { grid-template-columns: 1fr !important; }
+  .sheet-2col > * { border-left: 0 !important; border-right: 0 !important; }
+  .hdr-meta { display: none !important; }
+}
+@media (max-width: 640px) {
+  .app-header { grid-template-columns: auto 1fr !important; }
+  .rose-grid { grid-template-columns: 1fr !important; }
+  .rose-grid > svg { max-width: 260px; margin: 0 auto; }
+  .clp-stats { grid-template-columns: 1fr 1fr !important; }
+  .clp-stats > div { border-left: 0 !important; border-top: 1px solid var(--line); }
+  .stage-tick { display: none; }
+  .sheet-2col h1 { font-size: 34px !important; }
+}
+
+/* Range inputs drawn as a dimension line with a square datum handle */
+.stage-range { -webkit-appearance: none; appearance: none; background: transparent; height: 18px; cursor: pointer; }
+.stage-range::-webkit-slider-runnable-track { height: 1px; background: var(--line-3); }
+.stage-range::-moz-range-track { height: 1px; background: var(--line-3); }
+.stage-range::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; margin-top: -6px; background: var(--ink); border: 0; }
+.stage-range::-moz-range-thumb { width: 12px; height: 12px; background: var(--ink); border: 0; border-radius: 0; }
+.stage-range:focus-visible { outline: 1px solid var(--ink); outline-offset: 3px; }

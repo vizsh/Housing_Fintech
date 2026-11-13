@@ -1,0 +1,14 @@
+# Python 3.11
+fastapi==0.162.5
+starlette==1.10.0
+uvicorn==0.34.0
+pydantic==2.10.4
+pandas==3.0.5
+numpy==2.4.6
+pyarrow==26.0.0
+lightgbm==4.7.0
+scikit-learn==1.9.1
+h3==4.5.0
+rasterio==1.4.4
+pyproj==3.7.2
+httpx==0.28.1
